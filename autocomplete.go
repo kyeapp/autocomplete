@@ -1,8 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
+	"bufio"
+	"os"
+	"time"
 )
 
 type trie struct {
@@ -39,7 +42,6 @@ func (t *trie) add(word []byte) {
 	next.add(word[1:])
 }
 
-
 // find the top level trie of possible matchine autocomplete words
 func (t *trie) findRoot(w []byte) (*trie, error) {
 	if len(w) == 0 {
@@ -54,8 +56,9 @@ func (t *trie) findRoot(w []byte) (*trie, error) {
 }
 
 // returns a list of all words that are a possible autocomplete match
-func (t *trie) autocomplete(w []byte) []string {
-	start, err := t.findRoot(w)
+func (t *trie) autocomplete(baseWord string) []string {
+	defer timeTrack(time.Now(), "autocomplete")
+	start, err := t.findRoot([]byte(baseWord))
 	if err != nil {
 		return []string{}
 	}
@@ -68,27 +71,47 @@ func (t *trie) listWords() (list []string) {
 	if t.isWord {
 		list = append(list, t.base)
 	}
-	
+
 	for _, childTrie := range t.trieChar {
 		list = append(list, childTrie.listWords()...)
 	}
-	
+
 	return list
 }
 
 //load dictionary into the trie
-func loadDictionary(root *trie, filename string) *trie {
-	return nil
+func loadDictionary(root *trie, filename string) {
+	defer timeTrack(time.Now(), "load Dictionary")
+	file, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		root.add([]byte(scanner.Text()))
+	}
+
+	if err := scanner.Err(); err != nil {
+		panic(err)
+	}
+}
+
+func timeTrack(start time.Time, name string) {
+    elapsed := time.Since(start)
+    fmt.Printf("%s took %s\n", name, elapsed)
 }
 
 func main() {
 	root := new(trie)
 	root.init()
-	root.add([]byte{'a', 'l', 'l'})
-	root.add([]byte{'a', 't'})
-	root.add([]byte{'b', 'a', 't'})
+	loadDictionary(root, "words.txt")
 
-	list := root.autocomplete([]byte{'b', 'r'})
-	fmt.Println(list)
+	_ = root.autocomplete("brin")
+	//fmt.Println(list)
+
+
+	fmt.Println()
 
 }
